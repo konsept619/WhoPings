@@ -1,34 +1,104 @@
 #!/bin/bash
 
-LOG_FILE="/var/tmp/whopings"
 
 set -e 
 
+LOG_FILE="/var/tmp/whopings"
+flag_provided=false
+source_provided=false
+
 usage() {
   cat << EOF 
-This script must be used with sudo privileges
-Usage: $0 [interface] [options]
+Usage: $0 [b|i|h|s] [interface] 
 -b    "background"  To be used in cron; output will be redirected to log file 
 -i    "interactive" Output will be shown in terminal.
--h    "hepl"        Displays help.
+-s    "source"      Source interface on wich you want to listen. 
+-h    "help"        Displays help.
+
+This script must be used with sudo privileges!
 EOF
 }
-while getopts "b:i:h-:" flag; do 
+
+timestamp(){
+  cat << EOF
+
+=================================
+$( date +"%F %T") 
+Mode: $1
+
+EOF
+}
+
+run_tcpdump() {
+  #$1 is an interface on user wants to listen
+  #$2 is an IP address user wants to exclude, to show only incoming traffic, not outcoming
+
+  tcpdump -l -i $1 icmp and icmp[icmptype]=icmp-echo and not src host $2 -n 
+}
+background_mode(){
+  echo "$0 is running in background. PID: $$ "
+  timestamp 'background' >> $LOG_FILE
+  run_tcpdump $1 $2 | tee -a "$LOG_FILE" &
+}
+interactive_mode(){
+  timestamp 'interactive' >> $LOG_FILE
+  run_tcpdump $1 $2 | tee -a "$LOG_FILE" 
+}
+get_IP(){
+  #$1 is a interface from device
+  IP_ADDR=$( ip -o -4 addr show "$1"| awk '{print $4}' | cut -d/ -f1 )
+
+}
+while getopts "s:bih" flag; do 
+  flag_provided=true
   case "$flag" in
     b)
-      echo "$0 is running in background. PID: $$ "
-      tcpdump -i $OPTARG icmp and icmp[icmptype]=icmp-echo -n &>> $LOG_FILE &
+      b_flag=true
       ;;
     i) 
-      tcpdump -i $OPTARG icmp and icmp[icmptype]=icmp-echo -n
+      i_flag=true
+      ;;
+    s)
+      iface="$OPTARG"
+      source_provided=true
+      get_IP $iface
       ;;
     h)
       usage
       exit 0
       ;;
     \?)
-    echo "Invalid option: -$OPTARG"
-    exit 1
-    ;;
+      echo "You need to specify correct option!"
+      usage 
+      exit 1
+      ;;
   esac
 done
+#shift "$(($OPTIND -1))"
+if  ! $flag_provided; then
+  echo "You need to specify correct options!" >&2
+  usage
+  exit 1
+fi 
+if ! $source_provided; then
+  echo "You need to specify correct source interface!" >&2
+  usage
+  exit 1
+fi
+#echo "b_flag =$b_flag , i_flag=$i_flag ,flag_provided= $flag_provided, iface= $iface, addr=$IP_ADDR"
+if [ $b_flag ] && [ $i_flag ]; then
+  echo "You can't use background and interactive mode at once!"
+  usage 
+  exit 1
+fi
+if [ ! $b_flag ] && [ ! $i_flag ]; then
+  echo "You need to specifiy correct mode (-i or -b)!"
+  usage 
+  exit 1
+fi
+
+if $i_flag; then
+  interactive_mode "$iface" "$IP_ADDR"
+elif $b_flag; then
+  background_mode "$iface" "$IP_ADDR"
+fi
