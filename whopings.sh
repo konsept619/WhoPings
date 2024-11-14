@@ -4,8 +4,11 @@
 set -e 
 
 LOG_FILE="/var/tmp/whopings"
+MSG_FILE="./notify.sh"
 flag_provided=false
 source_provided=false
+LAST_IP=""
+
 
 usage() {
   cat << EOF 
@@ -29,11 +32,29 @@ Mode: $1
 EOF
 }
 
+info_msg(){
+  if [ ! -f $MSG_FILE ]; then
+    echo "Couldn't find $MSG_FILE! Make sure there is proper file created! "
+  else 
+    $MSG_FILE $1
+  fi
+
+}
+process_tcpdump_output(){
+  while IFS= read -r line; do
+    FOREIGN_IP=$(echo "$line" | awk '{print $3}' | cut -d. -f1-4 )
+    if [[ "$FOREIGN_IP" != "$LAST_IP" ]];then 
+      info_msg $FOREIGN_IP
+      LAST_IP="$FOREIGN_IP"
+    fi
+  done
+}
+
 run_tcpdump() {
   #$1 is an interface on user wants to listen
   #$2 is an IP address user wants to exclude, to show only incoming traffic, not outcoming
 
-  tcpdump -l -i $1 icmp and icmp[icmptype]=icmp-echo and not src host $2 -n 
+  tcpdump -l -i $1 icmp and icmp[icmptype]=icmp-echo and not src host $2 -n | process_tcpdump_output 
 }
 background_mode(){
   echo "$0 is running in background. PID: $$ "
@@ -97,8 +118,8 @@ if [ ! $b_flag ] && [ ! $i_flag ]; then
   exit 1
 fi
 
-if $i_flag; then
-  interactive_mode "$iface" "$IP_ADDR"
-elif $b_flag; then
+if [ -n "$i_flag" ]; then
+  interactive_mode "$iface" "$IP_ADDR" 
+elif [ -n "$b_flag" ]; then
   background_mode "$iface" "$IP_ADDR"
 fi
