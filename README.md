@@ -16,9 +16,9 @@ Usage: $0 [b|i|h|s] [interface]
 
 This script must be used with sudo privileges!
 ```
--**background mode**  was designed to be used (which is self explanatory) in background. Script doesn't interfere current terminal session and alows you to perform different tasks.
--**interactive mode** shows you whole tcpdump output in terminal. You see incoming traffic, outcoming traffic isn't shown.
--**source** is supposed to detrmine on which interface you want to listen. Script takes IP assigned to pointed source and excludes it from recording output via *tcpdump*.
+- **background mode**  was designed to be used (which is self explanatory) in background. Script doesn't interfere current terminal session and alows you to perform different tasks.
+- **interactive mode** shows you whole tcpdump output in terminal. You see incoming traffic, outcoming traffic isn't shown.
+- **source** is supposed to detrmine on which interface you want to listen. Script takes IP assigned to pointed source and excludes it from recording output via *tcpdump*.
  You can't use background and interactive mode simultaneously.
 ## Notification process 
 As soon as new IP address pings your device, there will be shown GUI notification with foreign address. Until the pinging device won't change, pop-up will appear only once. 
